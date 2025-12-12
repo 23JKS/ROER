@@ -9,7 +9,6 @@ import gym
 import numpy as np
 import tqdm
 import time
-import absl
 import sys
 from absl import app, flags
 from ml_collections import config_flags

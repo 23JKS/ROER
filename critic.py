@@ -47,6 +47,82 @@ def gumbel_rescale_loss_per(diff, alpha, args):
     return loss, norm
 
 
+def conservative_loss(diff, alpha, args):
+    """
+    Pearson χ² divergence loss for ROER.
+    
+    For Pearson χ² divergence: f(x) = 1/2 * (x-1)^2
+    The corresponding loss is: (diff/alpha)^2 / 2
+    
+    Advantages:
+    - Numerically stable (quadratic, not exponential)
+    - Computationally efficient
+    - Better for high-dimensional tasks
+    
+    Args:
+        diff: TD error (Q - V)
+        alpha: temperature parameter (loss_temp)
+        args: configuration arguments with gumbel_max_clip
+    
+    Returns:
+        loss: Pearson χ² divergence loss
+        norm: normalization factor for logging
+    """
+    z = diff / alpha
+    
+    # Clip for numerical stability (though less critical than KL)
+    if args.gumbel_max_clip is not None:
+        z = jnp.clip(z, -args.gumbel_max_clip, args.gumbel_max_clip)
+    
+    # Pearson χ² loss: 0.5 * z^2
+    loss = 0.5 * z ** 2
+    
+    # Normalization: use mean for consistency
+    # For Pearson χ², the norm is simpler than KL/JS
+    norm = jnp.mean(jnp.ones_like(z))
+    norm = jax.lax.stop_gradient(norm)  # Detach the gradients
+    
+    loss = loss / norm
+    
+    return loss, norm
+
+
+def conservative_loss_clipped(diff, alpha, args):
+    """
+    Pearson χ² divergence loss with linear extrapolation beyond clip.
+    Similar to gumbel_rescale_loss_per but for Pearson χ² divergence.
+    
+    For Pearson χ² divergence: f(x) = 1/2 * (x-1)^2
+    The loss with clipping: 0.5 * z^2 for |z| <= clip, linear extrapolation otherwise.
+    
+    Args:
+        diff: TD error (Q - V)
+        alpha: temperature parameter (loss_temp)
+        args: configuration arguments with gumbel_max_clip
+    
+    Returns:
+        loss: Pearson χ² divergence loss with clipping
+        norm: normalization factor for logging
+    """
+    x = diff / alpha
+    z = jnp.clip(x, -args.gumbel_max_clip, args.gumbel_max_clip)
+    
+    # Base loss: 0.5 * z^2
+    loss = 0.5 * z ** 2
+    
+    # Linear extrapolation for |x| > clip
+    # d/dz[0.5 * z^2] = z
+    linear = (x - z) * z
+    
+    # Normalization
+    norm = jnp.mean(jnp.ones_like(z))
+    norm = jax.lax.stop_gradient(norm)
+    
+    loss = (loss + linear) / norm
+    
+    return loss, norm
+
+
 def update_v(critic: Model, value: Model, batch: Batch,
              loss_temp: float, discount: float, double: bool, key: PRNGKey, args) -> Tuple[Model, InfoDict]:
 
@@ -70,12 +146,18 @@ def update_v(critic: Model, value: Model, batch: Batch,
         v = value.apply({'params': value_params}, obs)
         # check the divergence type 
         if args.per_type == "X2":
-            value_loss, norm = conservative_loss(q-v, alpha=loss_temp, args=args)
+            # Pearson χ² divergence
+            if args.log_loss:
+                value_loss, norm = conservative_loss_clipped(q - v, alpha=loss_temp, args=args)
+            else:
+                value_loss, norm = conservative_loss(q - v, alpha=loss_temp, args=args)
         elif args.per_type == "OER":
             if args.log_loss:
                 value_loss, norm = gumbel_rescale_loss_per(q - v, alpha=loss_temp, args=args)
             else:
                 value_loss, norm = gumbel_rescale_loss(q - v, alpha=loss_temp, args=args)
+        else:
+            raise ValueError(f"Unknown per_type: {args.per_type}")
         value_loss = value_loss.mean()
         return value_loss, {
             'value_loss': value_loss,

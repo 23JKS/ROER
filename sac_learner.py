@@ -57,6 +57,48 @@ def update_priority(key: PRNGKey, critic: Model, actor: Model, value: Model, tem
                 exp_a = exp_a/jnp.mean(exp_a)
             priority = exp_a
 
+    # Pearson χ² divergence
+    elif args.per_type == "X2":
+        next_v = value(batch.next_observations)
+        target_v = batch.rewards + discount * batch.masks * next_v
+        current_v = value(batch.observations)
+        td_error = target_v - current_v
+        a = td_error / loss_temp
+        
+        # Pearson χ² divergence uses linear relationship: w* = 1 + δ / β
+        # Where δ = td_error and β = loss_temp
+        # So: w* = 1 + td_error / loss_temp = 1 + a
+        # Clip for numerical stability
+        a = jnp.clip(a, -args.max_clip, args.max_clip)
+        
+        if args.update_scheme == "exp":
+            # Linear priority: w* = 1 + δ / β = 1 + a
+            linear_priority = 1.0 + a
+            
+            # Clip to reasonable range to ensure positive weights
+            linear_priority = jnp.maximum(linear_priority, args.min_clip)
+            linear_priority = jnp.minimum(linear_priority, args.max_clip)
+            
+            if args.std_normalize:
+                linear_priority = linear_priority / jnp.mean(linear_priority)
+            
+            priority = linear_priority
+            exp_a = linear_priority  # For logging consistency
+            
+        elif args.update_scheme == "avg":
+            # Exponential moving average scheme
+            linear_priority = 1.0 + a
+            linear_priority = jnp.maximum(linear_priority, args.min_clip)
+            linear_priority = jnp.minimum(linear_priority, args.max_clip)
+            
+            if args.std_normalize:
+                linear_priority = linear_priority / jnp.mean(w * linear_priority)
+            
+            priority = (beta * linear_priority + (1-beta)) * w
+            exp_a = linear_priority  # For logging consistency
+        else:
+            raise ValueError(f"Unknown update_scheme: {args.update_scheme}")
+
     # Baseline prioritized experience replay
     elif args.per_type == "PER":
         dist = actor(batch.next_observations)
@@ -76,7 +118,7 @@ def update_priority(key: PRNGKey, critic: Model, actor: Model, value: Model, tem
         priority = exp_a
 
     else:
-        raise ValueError
+        raise ValueError(f"Unknown per_type: {args.per_type}")
 
     # lower bound the weight 
     priority = jnp.maximum(priority, args.min_clip)

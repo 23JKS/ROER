@@ -1,0 +1,124 @@
+# Experiment configurations for JS Divergence ROER
+# This file contains recommended hyperparameters for different environments
+
+# MuJoCo Environments
+mujoco:
+  halfcheetah-v2:
+    temp: 4.0
+    min_clip: 0.5
+    max_clip: 50
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 2.0
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+    
+  hopper-v2:
+    temp: 4.0
+    min_clip: 0.5
+    max_clip: 50
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 2.0
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+    
+  walker2d-v2:
+    temp: 4.0
+    min_clip: 0.5
+    max_clip: 50
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 2.0
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+    
+  ant-v2:
+    temp: 4.0
+    min_clip: 0.5
+    max_clip: 50
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 2.5
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+    
+  humanoid-v2:
+    temp: 2.0  # Lower temperature for more stable training
+    min_clip: 0.5
+    max_clip: 50
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 1.5  # Smaller range for difficult task
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+
+# DeepMind Control Suite
+dm_control:
+  fish-swim:
+    temp: 1.0
+    min_clip: 0.5
+    max_clip: 100
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 2.0
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+    
+  hopper-stand:
+    temp: 1.0
+    min_clip: 0.5
+    max_clip: 100
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 2.0
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+    
+  humanoid-run:
+    temp: 1.0
+    min_clip: 0.5
+    max_clip: 100
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 1.5
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+    
+  humanoid-stand:
+    temp: 1.0
+    min_clip: 0.5
+    max_clip: 100
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 1.5
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+    
+  quadruped-run:
+    temp: 1.0
+    min_clip: 0.5
+    max_clip: 100
+    gumbel_max_clip: 7
+    js_min_weight: 0.5
+    js_max_weight: 2.0
+    per_alpha: 1.0
+    update_scheme: "exp"
+    log_loss: true
+
+# General notes:
+# - JS divergence uses sigmoid-based weights, which are naturally bounded
+# - Recommended js_max_weight is 1.5-2.5 (much smaller than KL's 50-100)
+# - temp (β) values are similar to or slightly lower than KL divergence
+# - min_clip should be > 0 to avoid zero priorities
+# - For difficult tasks (Humanoid), use smaller js_max_weight for stability
+

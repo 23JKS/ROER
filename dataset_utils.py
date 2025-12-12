@@ -131,48 +131,35 @@ class Dataset(object):
 
     def take_top(self, percentile: float = 100.0):
         assert percentile > 0.0 and percentile <= 100.0
-
         trajs = split_into_trajectories(self.observations, self.actions,
                                         self.rewards, self.masks,
                                         self.dones_float,
                                         self.next_observations)
-
         def compute_returns(traj):
             episode_return = 0
             for _, _, rew, _, _, _ in traj:
                 episode_return += rew
-
             return episode_return
-
         trajs.sort(key=compute_returns)
-
         N = int(len(trajs) * percentile / 100)
         N = max(1, N)
-
         trajs = trajs[-N:]
-
         (self.observations, self.actions, self.rewards, self.masks,
          self.dones_float, self.next_observations) = merge_trajectories(trajs)
-
         self.size = len(self.observations)
 
     def take_random(self, percentage: float = 100.0):
         assert percentage > 0.0 and percentage <= 100.0
-
         trajs = split_into_trajectories(self.observations, self.actions,
                                         self.rewards, self.masks,
                                         self.dones_float,
                                         self.next_observations)
         np.random.shuffle(trajs)
-
         N = int(len(trajs) * percentage / 100)
         N = max(1, N)
-
         trajs = trajs[-N:]
-
         (self.observations, self.actions, self.rewards, self.masks,
          self.dones_float, self.next_observations) = merge_trajectories(trajs)
-
         self.size = len(self.observations)
 
     def train_validation_split(self,
